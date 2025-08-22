@@ -1,6 +1,12 @@
+import sys
+import os
 import pytest
-from unittest.mock import patch, MagicMock
 import pandas as pd
+from unittest.mock import patch, MagicMock
+
+# Ensure tools/ is in the path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from tools.stock_recommender import StockRecommender
 
 # --- Mock Data ---
@@ -87,7 +93,9 @@ def test_fetch_stock_data_error(mock_ticker_class):
     mock_ticker_class.return_value = mock_ticker
 
     result = sr.fetch_stock_data("FAIL")
+    
     assert "error" in result
+    assert "fetch failed" in result["error"].lower()
 
 # --- Excel Update Test ---
 @patch("tools.stock_recommender.pd.read_excel")

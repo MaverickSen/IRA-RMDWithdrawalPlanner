@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  tests:
+    build:
+      context: .
+      target: base   # use the base stage from Dockerfile
+    command: pytest --maxfail=1 --disable-warnings -q
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+  cli:
+    build:
+      context: .
+      target: base   # reuse base stage instead of re-installing deps
+    command: python main.py
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    stdin_open: true
+    tty: true
