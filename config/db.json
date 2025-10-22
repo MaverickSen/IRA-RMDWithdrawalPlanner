@@ -1,0 +1,10 @@
+{
+  "database": {
+    "engine": "postgresql",
+    "name": "ira_rmd",
+    "user": "postgres",
+    "password": "postgres",
+    "host": "localhost",
+    "port": 5432
+  }
+}

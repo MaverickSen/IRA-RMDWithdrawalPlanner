@@ -1,17 +1,16 @@
 import yfinance as yf
-import pandas as pd
+from db.connection import get_connection
 
 class StockRecommender:
     def fetch_stock_data(self, ticker: str):
         """Fetches stock data using Yahoo Finance."""
-        stock = yf.Ticker(ticker)
-
         try:
+            stock = yf.Ticker(ticker)
             info = stock.info
             history = stock.history(period="6mo")
 
             total_debt = info.get("totalDebt", 0) or 0
-            total_equity = info.get("totalStockholderEquity", 1) or 1  # Avoid division by zero
+            total_equity = info.get("totalStockholderEquity", 1) or 1
             debt_to_equity = total_debt / total_equity if total_equity else 0
 
             return {
@@ -21,7 +20,7 @@ class StockRecommender:
                 "Price-to-Book": info.get("priceToBook", 0),
                 "Return on Equity": info.get("returnOnEquity", 0),
                 "Debt-to-Equity": debt_to_equity,
-                "Price Trend": history["Close"].pct_change().mean() if not history.empty else 0
+                "Price Trend": history["Close"].pct_change().mean() if not history.empty else 0,
             }
         except Exception as e:
             return {"Ticker": ticker, "error": f"Failed to fetch data: {str(e)}"}
@@ -29,11 +28,10 @@ class StockRecommender:
     def score_stock(self, data):
         """Assigns a score based on financial metrics."""
         if "error" in data or not data.get("Current Price"):
-            return 0  # No score if data is missing
+            return 0
 
         score = 0
-
-        # ✅ Price vs Target Price (Upside Potential)
+        # Price vs Target Price (Upside Potential)
         if data["Target Mean Price"] > 0 and data["Current Price"] > 0:
             upside = (data["Target Mean Price"] - data["Current Price"]) / data["Current Price"]
             if upside > 0.3:
@@ -45,7 +43,7 @@ class StockRecommender:
             elif upside > 0.05:
                 score += 2
 
-        # ✅ Price-to-Book Ratio (P/B)
+        # Price-to-Book Ratio (P/B)
         if data["Price-to-Book"] > 0:
             if data["Price-to-Book"] < 1:
                 score += 5
@@ -56,7 +54,7 @@ class StockRecommender:
             else:
                 score -= 1
 
-        # ✅ Return on Equity (ROE)
+        # Return on Equity (ROE)
         if data["Return on Equity"] > 0:
             if data["Return on Equity"] > 0.2:
                 score += 5
@@ -67,7 +65,7 @@ class StockRecommender:
             else:
                 score -= 1
 
-        # ✅ Debt-to-Equity Ratio
+        # Debt-to-Equity Ratio
         if data["Debt-to-Equity"] < 1:
             score += 3
         elif data["Debt-to-Equity"] < 1.5:
@@ -77,7 +75,7 @@ class StockRecommender:
         else:
             score -= 2
 
-        # ✅ Historical Price Trend
+        # Historical Price Trend
         if data["Price Trend"]:
             if data["Price Trend"] > 0.03:
                 score += 4
@@ -88,17 +86,16 @@ class StockRecommender:
 
         return score
 
-    def recommend_stock(self, ticker):
-        """Fetches stock data and provides a Buy/Hold/Sell recommendation."""
+    def recommend_stock(self, ticker: str):
+        """Generates a recommendation for a single ticker."""
         stock_data = self.fetch_stock_data(ticker)
-
         if "error" in stock_data:
             return {"Ticker": ticker, "Recommendation": "Error: " + stock_data["error"]}
 
         score = self.score_stock(stock_data)
 
         if score >= 12:
-            recommendation = "Buy"
+            recommendation = "Strong Buy"
         elif score >= 8:
             recommendation = "Buy"
         elif score >= 5:
@@ -108,18 +105,17 @@ class StockRecommender:
 
         return {"Ticker": ticker, "Recommendation": recommendation}
 
-    def update_excel_with_recommendations(self, file_path):
-        """Reads stock tickers from the Excel file, fetches recommendations, and updates the sheet."""
-        try:
-            df = pd.read_excel(file_path)
-            if "Ticker" not in df.columns or "Quantity" not in df.columns:
-                raise ValueError("Excel file must contain 'Ticker' and 'Quantity' columns.")
+    def update_portfolio_recommendations(self, user_id: int):
+        """Fetches tickers from DB, updates recommendations back to DB."""
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT ticker FROM portfolio WHERE user_id = %s;", (user_id,))
+                tickers = [r[0] for r in cur.fetchall()]
 
-            # Get recommendations for each stock
-            df["Recommendation"] = df["Ticker"].apply(lambda ticker: self.recommend_stock(ticker)["Recommendation"])
-
-            # Save back to Excel
-            df.to_excel(file_path, index=False)
-            print(f"\n Stock recommendations updated in {file_path}")
-        except Exception as e:
-            print(f"\n Error updating Excel: {e}")
+                for ticker in tickers:
+                    rec = self.recommend_stock(ticker)["Recommendation"]
+                    cur.execute(
+                        "UPDATE portfolio SET recommendation = %s WHERE user_id = %s AND ticker = %s;",
+                        (rec, user_id, ticker),
+                    )
+                conn.commit()

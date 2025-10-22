@@ -1,6 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage
 
+
 class TaxAnalyser:
     def __init__(self, api_key: str):
         """
@@ -25,63 +26,63 @@ class TaxAnalyser:
         if not recommendations or not stock_data:
             return "No sufficient data available for tax analysis."
 
-        # Prioritize stocks explicitly marked for selling
+        # Filter stocks marked for "Sell"
         sell_stocks = {
             ticker: stock_data.get(ticker, {})
             for ticker, status in recommendations.items()
-            if status == "Sell"
+            if status.lower() == "sell"
         }
 
-        # If no Sell stocks found, fallback to Hold/Buy stocks
         if sell_stocks:
             stock_details = "\n".join(
-                f"{ticker}: Bought at {details.get('buy_price', 'N/A')} | Held for {details.get('holding_period', 'N/A')} months"
+                f"{ticker}: Bought at {details.get('buy_price', 'N/A')} | "
+                f"Held for {details.get('holding_period', 'N/A')} months | "
+                f"Quantity: {details.get('quantity', 'N/A')}"
                 for ticker, details in sell_stocks.items()
             )
 
             prompt = f"""
-            You are a tax consultant specializing in capital gains tax strategies.
-            The user has the following stocks recommended for selling:
+            You are a tax consultant specialising in capital gains strategies.
 
+            The user has the following stocks recommended for selling:
             {stock_details}
 
-            Suggest the most tax-efficient way to sell these stocks, considering:
+            Please suggest the most tax-efficient selling strategy, considering:
             - Long-term vs short-term capital gains taxes
-            - FIFO vs LIFO strategies
-            - Any potential tax loss harvesting opportunities
-
-            Provide a detailed recommendation.
+            - FIFO vs LIFO methods
+            - Tax loss harvesting opportunities
+            - Holding period optimisations
             """
         else:
             fallback_stocks = {
                 ticker: stock_data.get(ticker, {})
                 for ticker, status in recommendations.items()
-                if status in {"Hold", "Buy"}
+                if status.lower() in {"hold", "buy"}
             }
 
             if not fallback_stocks:
-                return "No Sell, Hold, or Buy stocks found to evaluate."
+                return "No valid stocks found for tax analysis."
 
             stock_details = "\n".join(
-                f"{ticker}: Bought at {details.get('buy_price', 'N/A')} | Held for {details.get('holding_period', 'N/A')} months"
+                f"{ticker}: Bought at {details.get('buy_price', 'N/A')} | "
+                f"Held for {details.get('holding_period', 'N/A')} months | "
+                f"Quantity: {details.get('quantity', 'N/A')}"
                 for ticker, details in fallback_stocks.items()
             )
 
             prompt = f"""
-            No stocks are explicitly marked for selling, but the user may need to liquidate assets.
+            The user has no 'Sell' recommendations, but may wish to optimise their portfolio.
 
-            The following stocks are marked as Hold/Buy:
+            Here are their current holdings:
             {stock_details}
 
-            Recommend which, if any, could be sold in a tax-efficient manner, considering:
-            - Harvesting losses to offset gains
-            - Optimizing for long-term capital gains
-            - FIFO vs LIFO strategies
-
-            Provide a detailed recommendation.
+            Please suggest:
+            - Which stocks (if any) could be sold now for tax efficiency
+            - Potential tax loss harvesting opportunities
+            - Optimal sale sequencing based on holding periods
+            - Any long-term holding advantages to preserve
             """
 
         messages = [HumanMessage(content=prompt)]
         response = self.llm.invoke(messages)
-
         return response.content if hasattr(response, "content") else str(response)

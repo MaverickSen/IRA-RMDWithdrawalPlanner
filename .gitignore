@@ -3,3 +3,11 @@ __pycache__/
 **/__pycache__/
 *.pyc
 *.pyo
+
+# Environmental files
+.env
+.env.*
+
+# Virtual environments
+venv/
+.env/

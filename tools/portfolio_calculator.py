@@ -13,27 +13,31 @@ def calculate_portfolio_value(file_path: str) -> dict:
     """
     try:
         df = pd.read_excel(file_path)
+
+        # Validate required columns
+        if not {"Ticker", "Quantity"}.issubset(df.columns):
+            return {"error": "Excel file must contain 'Ticker' and 'Quantity' columns."}
+
         total_value = 0
         stock_values = {}
-        quantities = {}  # Store quantities
+        quantities = {}
 
         for _, row in df.iterrows():
-            ticker = row["Ticker"]
+            ticker = str(row["Ticker"]).strip()
             quantity = row["Quantity"]
-            price = get_stock_price(ticker)
 
+            price = get_stock_price(ticker)
             if price is not None:
                 stock_total = price * quantity
-                stock_values[ticker] = stock_total
-                quantities[ticker] = quantity  # Store quantity
+                stock_values[ticker] = round(stock_total, 2)
+                quantities[ticker] = quantity
                 total_value += stock_total
 
         return {
             "stocks": stock_values,
-            "quantities": quantities,  # Return quantities
+            "quantities": quantities,
             "total_value": round(total_value, 2)
         }
 
     except Exception as e:
-        print(f"Error calculating portfolio value: {e}")
-        return None
+        return {"error": f"Error calculating portfolio value: {str(e)}"}

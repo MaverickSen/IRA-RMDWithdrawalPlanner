@@ -1,6 +1,6 @@
 import yfinance as yf
 
-def get_stock_price(ticker: str) -> float:
+def get_stock_price(ticker: str) -> float | None:
     """
     Fetches the current stock price for a given ticker symbol.
 
@@ -8,12 +8,17 @@ def get_stock_price(ticker: str) -> float:
         ticker (str): The stock ticker symbol.
 
     Returns:
-        float: The current stock price.
+        float | None: The current stock price, or None if unavailable.
     """
     try:
         stock = yf.Ticker(ticker)
-        price = stock.history(period="1d")["Close"].iloc[-1]
+        history = stock.history(period="1d")
+
+        if history.empty:
+            return None  # No data available
+
+        price = history["Close"].iloc[-1]
         return round(price, 2)
-    except Exception as e:
-        print(f"Error fetching price for {ticker}: {e}")
+
+    except Exception:
         return None
