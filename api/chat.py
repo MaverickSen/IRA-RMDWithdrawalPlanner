@@ -4,6 +4,9 @@ from pydantic import BaseModel
 from db.connection import get_connection
 from workflows.portfolio_workflow import PortfolioWorkflow
 from config.settings import settings
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])

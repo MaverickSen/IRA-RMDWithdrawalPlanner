@@ -1,19 +1,27 @@
 from langgraph.graph import StateGraph
 from pydantic import BaseModel
-from typing import Literal, List, Dict
+from typing import Literal, List, Optional, Dict
+from datetime import datetime
 from openai import OpenAI
 from agents.stock_advisor import StockAdvisor
 from agents.tax_advisor import TaxAdvisor
 from config.settings import settings
 
 
+class PortfolioItem(BaseModel):
+    stock_name: str
+    ticker: str
+    quantity: int
+    recommendation: Optional[str] = None
+    uploaded_at: datetime
+
 
 class PortfolioState(BaseModel):
     user_id: int
     query: str
-    response: str | None = None
-    history: List[Dict[str, str]] | None = None
-    portfolio: List[Dict[str, str]] | None = None
+    response: Optional[str] = None
+    history: Optional[List[Dict[str, str]]] = None
+    portfolio: Optional[List[PortfolioItem]] = None
 
 
 class PortfolioWorkflow:
@@ -62,7 +70,7 @@ class PortfolioWorkflow:
             )
 
         if query_type == "stock":
-            result = self.stock_agent.ask_stock_question(state.query, state.portfolio)
+            result = self.stock_agent.ask_stock_question(state.query, state.user_id)
         else:
             result = self.tax_agent.ask_tax_question(state.query, state.portfolio)
 
@@ -78,10 +86,13 @@ class PortfolioWorkflow:
         self,
         user_id: int,
         query: str,
-        portfolio: List[Dict[str, str]],
+        portfolio: List[Dict[str, any]],
         history: List[Dict[str, str]] | None = None,
     ) -> str:
         """Main workflow entry point."""
         state = PortfolioState(user_id=user_id, query=query, portfolio=portfolio, history=history)
         result = self.executor.invoke(state)
-        return result.response
+        # langgraph returns AddableValuesDict, so access by key
+        if isinstance(result, dict) or "response" in result:
+            return result["response"]
+        return str(result)

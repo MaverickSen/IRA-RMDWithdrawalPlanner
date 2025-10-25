@@ -1,43 +1,40 @@
-import pandas as pd
 from tools.stock_fetcher import get_stock_price
 
-def calculate_portfolio_value(file_path: str) -> dict:
+def calculate_portfolio_value(portfolio: list[dict]) -> dict:
     """
-    Reads stock tickers and quantities from an Excel file and calculates total portfolio value.
+    Calculates portfolio value from a list of stock entries.
 
     Args:
-        file_path (str): Path to the Excel file containing stock data.
+        portfolio (list[dict]): List of dicts with 'ticker' and 'quantity'.
 
     Returns:
-        dict: A dictionary with individual stock values, quantities, and total portfolio value.
+        dict: Stocks, quantities, and total portfolio value.
     """
-    try:
-        df = pd.read_excel(file_path)
+    total_value = 0
+    stock_values = {}
+    quantities = {}
 
-        # Validate required columns
-        if not {"Ticker", "Quantity"}.issubset(df.columns):
-            return {"error": "Excel file must contain 'Ticker' and 'Quantity' columns."}
+    for item in portfolio:
+        ticker = str(item.get("ticker") or "").upper()
+        quantity = int(item.get("quantity") or 0)
 
-        total_value = 0
-        stock_values = {}
-        quantities = {}
+        if not ticker or quantity <= 0:
+            continue  # skip invalid entries
 
-        for _, row in df.iterrows():
-            ticker = str(row["Ticker"]).strip()
-            quantity = row["Quantity"]
+        price = get_stock_price(ticker)
 
-            price = get_stock_price(ticker)
-            if price is not None:
-                stock_total = price * quantity
-                stock_values[ticker] = round(stock_total, 2)
-                quantities[ticker] = quantity
-                total_value += stock_total
+        if price is not None:
+            stock_total = price * quantity
+            stock_values[ticker] = stock_total
+            quantities[ticker] = quantity
+            total_value += stock_total
+        else:
+            # Include zero for tickers with no price so keys always exist
+            stock_values[ticker] = 0
+            quantities[ticker] = quantity
 
-        return {
-            "stocks": stock_values,
-            "quantities": quantities,
-            "total_value": round(total_value, 2)
-        }
-
-    except Exception as e:
-        return {"error": f"Error calculating portfolio value: {str(e)}"}
+    return {
+        "stocks": stock_values,
+        "quantities": quantities,
+        "total_value": round(total_value, 2)
+    }

@@ -5,7 +5,6 @@ from db.connection import get_connection
 from config.settings import settings
 
 
-
 class TaxAdvisor:
     def __init__(self, api_key: str):
         """
@@ -42,7 +41,7 @@ class TaxAdvisor:
 
             stock_data = {}
             for ticker, buy_price, quantity, holding_period in rows:
-                stock_data[ticker] = {
+                stock_data[ticker.upper()] = {
                     "buy_price": float(buy_price) if buy_price else None,
                     "quantity": int(quantity) if quantity else None,
                     "holding_period": int(holding_period) if holding_period else None,
@@ -71,18 +70,28 @@ class TaxAdvisor:
 
         return self.tax_analyser.analyse_selling_strategy(recommendations, stock_data)
 
-    def ask_tax_question(self, question: str) -> str:
+    def ask_tax_question(self, user_id: int, question: str) -> str:
         """
-        Allows users to query ChatGPT for tax-related questions.
+        Allows users to query ChatGPT for tax-related questions with portfolio context.
 
         Args:
+            user_id (int): User's unique ID
             question (str): User's tax-related query.
 
         Returns:
             str: ChatGPT's response.
         """
+        stock_data = self._fetch_portfolio_data(user_id)
+        portfolio_context = ""
+        if stock_data:
+            portfolio_context = "User's portfolio data:\n" + "\n".join(
+                f"{ticker}: Bought at {data['buy_price']}, Quantity: {data['quantity']}, Held for {data['holding_period']} months"
+                for ticker, data in stock_data.items()
+            ) + "\n\n"
+
         prompt = f"""
         You are a tax expert with deep knowledge of stock taxation and capital gains.
+        {portfolio_context}
         The user has a tax-related question:
 
         {question}
