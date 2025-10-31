@@ -24,6 +24,8 @@ def get_stock_price(ticker: str) -> float | None:
             price = history["Close"].iloc[-1]
             return round(price, 2)
         
+        # Could not fetch price
+        print(f"Could not fetch latest price for {ticker}. Returning 0.")
         return None
 
     except Exception as e:

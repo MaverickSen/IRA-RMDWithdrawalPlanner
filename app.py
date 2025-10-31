@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from api.users import router as users_router
 from api.portfolio import router as portfolio_router
 from api.chat import router as chat_router
+from dotenv import load_dotenv
+load_dotenv()
+
 
 app = FastAPI(
     title="IRA-RMD Portfolio Advisor",
