@@ -31,7 +31,7 @@ class TaxAdvisor:
                 with conn.cursor() as cur:
                     cur.execute("""
                         SELECT ticker, buy_price, quantity, holding_period_months
-                        FROM portfolios
+                        FROM portfolio
                         WHERE user_id = %s;
                     """, (user_id,))
                     rows = cur.fetchall()

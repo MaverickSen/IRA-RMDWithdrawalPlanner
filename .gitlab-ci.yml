@@ -1,0 +1,47 @@
+image: docker:latest
+
+services:
+  - docker:dind
+
+stages:
+  - build
+  - push
+  - deploy
+
+variables:
+  DOCKER_IMAGE: agastyasen/ira-rmd-planner
+  DOCKER_TAG: latest
+
+before_script:
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+build:
+  stage: build
+  script:
+    - echo "Building Docker image..."
+    - docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
+
+push:
+  stage: push
+  script:
+    - echo "Pushing Docker image to Docker Hub..."
+    - docker push $DOCKER_IMAGE:$DOCKER_TAG
+
+deploy:
+  stage: deploy
+  before_script:
+    - apt-get update -y && apt-get install -y openssh-client
+  script:
+    - echo "Deploying to EC2..."
+    - mkdir -p ~/.ssh
+    - echo "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh -o StrictHostKeyChecking=no ubuntu@$EC2_PUBLIC_IP "
+        sudo docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD &&
+        sudo docker pull $DOCKER_IMAGE:$DOCKER_TAG &&
+        sudo docker stop ira-rmd || true &&
+        sudo docker rm ira-rmd || true &&
+        sudo docker run -d --name ira-rmd -p 8000:8000 --env-file /home/ubuntu/.env $DOCKER_IMAGE:$DOCKER_TAG
+      "
+  only:
+    - main  # Only deploy when pushing to main branch
